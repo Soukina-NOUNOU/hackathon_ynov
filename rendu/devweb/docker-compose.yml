@@ -1,0 +1,12 @@
+version: "3.9"
+
+services:
+  devweb:
+    build: .
+    container_name: techcorp-chat
+    ports:
+      - "5000:5000"
+    environment:
+      - OLLAMA_URL=${OLLAMA_URL:-http://host.docker.internal:11434}
+      - MODEL_NAME=${MODEL_NAME:-phi3.5:latest}
+    restart: unless-stopped

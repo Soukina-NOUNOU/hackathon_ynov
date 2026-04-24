@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TechCorp AI — Financial Assistant</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════ HEADER -->
+<header>
+  <div class="brand">
+    <div class="logo">TC</div>
+    <div class="brand-text">
+      <span class="brand-name">TechCorp Industries</span>
+      <span class="brand-sub">Financial AI Assistant</span>
+    </div>
+  </div>
+
+  <div class="header-controls">
+    <!-- Sélecteur de modèle -->
+    <div class="model-picker">
+      <label for="model-select">Modèle</label>
+      <select id="model-select" title="Choisir le modèle">
+        <option value="{{ default_model }}">{{ default_model }}</option>
+      </select>
+    </div>
+
+    <!-- Indicateur de connexion -->
+    <div class="status-badge" id="status-badge">
+      <span class="status-dot" id="status-dot"></span>
+      <span id="status-text">Connexion…</span>
+    </div>
+
+    <!-- Bouton configuration -->
+    <button class="btn-icon" id="btn-config" title="Paramètres de connexion">⚙</button>
+  </div>
+</header>
+
+<!-- ═══════════════════════════════════════════════════════════ MODAL CONFIG -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <h2>Paramètres de connexion</h2>
+    <label>URL du serveur Ollama (INFRA)
+      <input type="text" id="config-url" value="{{ ollama_url }}" placeholder="http://localhost:11434" />
+    </label>
+    <label>Nom du modèle
+      <input type="text" id="config-model" value="{{ default_model }}" placeholder="phi3-financial" />
+    </label>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="btn-cancel">Annuler</button>
+      <button class="btn-primary" id="btn-save">Sauvegarder & Tester</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ MAIN -->
+<main>
+  <!-- Zone de messages -->
+  <div class="chat-container" id="chat-container">
+    <!-- Message d'accueil -->
+    <div class="message assistant" id="welcome-message">
+      <div class="avatar">AI</div>
+      <div class="bubble">
+        <p>Bonjour ! Je suis l'assistant financier de <strong>TechCorp Industries</strong>.</p>
+        <p>Je peux vous aider avec :</p>
+        <ul>
+          <li> Analyse de marchés et investissements</li>
+          <li> Budgétisation et planification financière</li>
+          <li> Concepts économiques et trading</li>
+          <li> Stratégie d'entreprise</li>
+        </ul>
+        <p>Comment puis-je vous aider ?</p>
+        <div class="suggestion-chips">
+          <button class="chip" onclick="sendSuggestion(this)">Explique-moi le ratio P/E</button>
+          <button class="chip" onclick="sendSuggestion(this)">Comment diversifier un portefeuille ?</button>
+          <button class="chip" onclick="sendSuggestion(this)">C'est quoi une obligation ?</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Barre de saisie -->
+  <div class="input-area">
+    <div class="input-wrapper">
+      <button class="btn-icon" id="btn-clear" title="Effacer la conversation">🗑</button>
+      <textarea
+        id="user-input"
+        placeholder="Posez votre question financière…"
+        rows="1"
+        maxlength="4000"
+      ></textarea>
+      <button class="btn-send" id="btn-send" title="Envoyer (Entrée)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="22" y1="2" x2="11" y2="13"/>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </div>
+    <div class="input-footer">
+      <span id="char-count">0 / 4000</span>
+      <span>Modèle : <strong id="current-model-label">{{ default_model }}</strong> — Ollama <span id="footer-url">{{ ollama_url }}</span></span>
+    </div>
+  </div>
+</main>
+
+<!-- ═══════════════════════════════════════════════════════════ SCRIPT -->
+<script>
+// ─── État global ──────────────────────────────────────────────────────────
+const state = {
+  messages: [],           // historique de la conversation (role + content)
+  streaming: false,       // est-ce qu'une réponse est en cours ?
+  connected: false,
+  currentModel: "{{ default_model }}",
+  ollamaUrl: "{{ ollama_url }}",
+};
+
+// ─── Refs DOM ─────────────────────────────────────────────────────────────
+const chatContainer  = document.getElementById("chat-container");
+const userInput      = document.getElementById("user-input");
+const btnSend        = document.getElementById("btn-send");
+const btnClear       = document.getElementById("btn-clear");
+const btnConfig      = document.getElementById("btn-config");
+const btnCancel      = document.getElementById("btn-cancel");
+const btnSave        = document.getElementById("btn-save");
+const statusDot      = document.getElementById("status-dot");
+const statusText     = document.getElementById("status-text");
+const statusBadge    = document.getElementById("status-badge");
+const modelSelect    = document.getElementById("model-select");
+const charCount      = document.getElementById("char-count");
+const currentModelLabel = document.getElementById("current-model-label");
+const footerUrl      = document.getElementById("footer-url");
+const modalOverlay   = document.getElementById("modal-overlay");
+
+// ─── Statut de connexion ──────────────────────────────────────────────────
+async function checkStatus() {
+  try {
+    const resp = await fetch("/api/status");
+    const data = await resp.json();
+
+    state.connected = data.connected;
+    statusDot.className  = "status-dot " + (data.connected ? "connected" : "disconnected");
+    statusText.textContent = data.connected ? "Connecté" : "Déconnecté";
+    statusBadge.className  = "status-badge " + (data.connected ? "ok" : "nok");
+
+    if (data.connected && data.models.length > 0) {
+      // Remplir le sélecteur de modèles
+      const current = modelSelect.value;
+      modelSelect.innerHTML = "";
+      data.models.forEach(m => {
+        const opt = document.createElement("option");
+        opt.value = m;
+        opt.textContent = m;
+        modelSelect.appendChild(opt);
+      });
+      // Sélectionner le modèle courant si disponible
+      if (data.models.includes(current)) modelSelect.value = current;
+      else if (data.models.includes(state.currentModel)) modelSelect.value = state.currentModel;
+      state.currentModel = modelSelect.value;
+      currentModelLabel.textContent = state.currentModel;
+    }
+  } catch {
+    state.connected = false;
+    statusDot.className  = "status-dot disconnected";
+    statusText.textContent = "Erreur réseau";
+    statusBadge.className  = "status-badge nok";
+  }
+}
+
+// Vérification initiale + polling toutes les 10s
+checkStatus();
+setInterval(checkStatus, 10_000);
+
+// ─── Envoi d'un message ───────────────────────────────────────────────────
+async function sendMessage(text) {
+  const content = (text || userInput.value).trim();
+  if (!content || state.streaming) return;
+
+  if (!state.connected) {
+    showError("Le serveur Ollama n'est pas accessible. Vérifiez la configuration (⚙).");
+    return;
+  }
+
+  // Réinitialise input
+  userInput.value = "";
+  charCount.textContent = "0 / 4000";
+  autoResize();
+
+  // Ajouter le message utilisateur à l'historique
+  state.messages.push({ role: "user", content });
+  appendMessage("user", content);
+
+  // Préparer bulle de réponse
+  state.streaming = true;
+  btnSend.disabled = true;
+  btnSend.classList.add("loading");
+
+  const assistantBubble = appendMessage("assistant", "", true);
+
+  try {
+    const response = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        messages: state.messages,
+        model: state.currentModel,
+      }),
+    });
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let fullText = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value);
+      const lines = chunk.split("\n");
+
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        const raw = line.slice(6).trim();
+        if (raw === "[DONE]") break;
+
+        try {
+          const parsed = JSON.parse(raw);
+          if (parsed.error) {
+            assistantBubble.innerHTML = `<span class="error-text">⚠ ${parsed.error}</span>`;
+            break;
+          }
+          const token = parsed?.message?.content ?? "";
+          fullText += token;
+          assistantBubble.textContent = fullText;
+          chatContainer.scrollTop = chatContainer.scrollHeight;
+        } catch { /* ignore JSON malformé */ }
+      }
+    }
+
+    // Ajouter la réponse complète à l'historique
+    if (fullText) {
+      state.messages.push({ role: "assistant", content: fullText });
+    }
+
+  } catch (err) {
+    assistantBubble.innerHTML = `<span class="error-text">⚠ Erreur réseau : ${err.message}</span>`;
+  } finally {
+    state.streaming = false;
+    btnSend.disabled = false;
+    btnSend.classList.remove("loading");
+    chatContainer.scrollTop = chatContainer.scrollHeight;
+  }
+}
+
+// ─── Helpers DOM ──────────────────────────────────────────────────────────
+function appendMessage(role, content, isStreaming = false) {
+  const wrapper = document.createElement("div");
+  wrapper.className = `message ${role}`;
+
+  const avatar = document.createElement("div");
+  avatar.className = "avatar";
+  avatar.textContent = role === "user" ? "Vous" : "AI";
+
+  const bubble = document.createElement("div");
+  bubble.className = "bubble";
+
+  if (isStreaming) {
+    bubble.innerHTML = '<span class="cursor-blink">▍</span>';
+  } else {
+    bubble.textContent = content;
+  }
+
+  wrapper.appendChild(avatar);
+  wrapper.appendChild(bubble);
+  chatContainer.appendChild(wrapper);
+  chatContainer.scrollTop = chatContainer.scrollHeight;
+
+  return bubble;
+}
+
+function showError(msg) {
+  const err = document.createElement("div");
+  err.className = "error-banner";
+  err.textContent = msg;
+  chatContainer.appendChild(err);
+  setTimeout(() => err.remove(), 5000);
+  chatContainer.scrollTop = chatContainer.scrollHeight;
+}
+
+function sendSuggestion(btn) {
+  sendMessage(btn.textContent);
+}
+
+// ─── Effacer la conversation ──────────────────────────────────────────────
+btnClear.addEventListener("click", () => {
+  if (state.streaming) return;
+  state.messages = [];
+  chatContainer.innerHTML = "";
+  // Réafficher le message d'accueil
+  const welcome = document.getElementById("welcome-message") || buildWelcome();
+  chatContainer.appendChild(welcome);
+});
+
+// ─── Textarea auto-resize ─────────────────────────────────────────────────
+function autoResize() {
+  userInput.style.height = "auto";
+  userInput.style.height = Math.min(userInput.scrollHeight, 160) + "px";
+}
+
+userInput.addEventListener("input", () => {
+  charCount.textContent = `${userInput.value.length} / 4000`;
+  autoResize();
+});
+
+userInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+});
+
+btnSend.addEventListener("click", () => sendMessage());
+
+// ─── Sélection du modèle ──────────────────────────────────────────────────
+modelSelect.addEventListener("change", () => {
+  state.currentModel = modelSelect.value;
+  currentModelLabel.textContent = state.currentModel;
+});
+
+// ─── Modal de configuration ───────────────────────────────────────────────
+btnConfig.addEventListener("click", () => {
+  document.getElementById("config-url").value = state.ollamaUrl;
+  document.getElementById("config-model").value = state.currentModel;
+  modalOverlay.classList.add("open");
+});
+
+btnCancel.addEventListener("click", () => modalOverlay.classList.remove("open"));
+modalOverlay.addEventListener("click", (e) => {
+  if (e.target === modalOverlay) modalOverlay.classList.remove("open");
+});
+
+btnSave.addEventListener("click", async () => {
+  const newUrl   = document.getElementById("config-url").value.trim();
+  const newModel = document.getElementById("config-model").value.trim();
+
+  if (!newUrl) return;
+
+  await fetch("/api/config", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url: newUrl, model: newModel }),
+  });
+
+  state.ollamaUrl = newUrl;
+  state.currentModel = newModel;
+  footerUrl.textContent = newUrl;
+  currentModelLabel.textContent = newModel;
+  modalOverlay.classList.remove("open");
+  await checkStatus();
+});
+</script>
+</body>
+</html>
