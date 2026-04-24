@@ -77,9 +77,11 @@ def chat():
                     "messages": messages,
                     "stream": True,
                     "options": {
-                        "temperature": 0.7,
+                        "temperature": 0.5,
                         "top_p": 0.9,
-                        "num_predict": 1024,
+                        "num_predict": 350,
+                        "stop": ["\n\n\n", "Les partenaires", "Pour ce qui est", "Pour le reste"],
+                        "repeat_penalty": 1.3,
                     },
                 },
                 stream=True,

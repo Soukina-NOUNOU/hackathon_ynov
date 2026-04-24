@@ -260,7 +260,19 @@ async function sendMessage(text) {
         } catch {}
       }
     }
-    if (fullText) state.messages.push({ role: "assistant", content: fullText });
+    if (fullText) {
+      // Tronquer à la dernière phrase complète (. ! ?)
+      const lastEnd = Math.max(
+        fullText.lastIndexOf("."),
+        fullText.lastIndexOf("!"),
+        fullText.lastIndexOf("?")
+      );
+      if (lastEnd !== -1 && lastEnd < fullText.length - 1) {
+        fullText = fullText.slice(0, lastEnd + 1);
+        bubble.textContent = fullText;
+      }
+      state.messages.push({ role: "assistant", content: fullText });
+    }
   } catch (e) {
     bubble.innerHTML = `<span class="err">Erreur réseau : ${e.message}</span>`;
   } finally {
