@@ -18,10 +18,10 @@ CORS(app)
 
 # URL du serveur Ollama déployé par l'équipe INFRA
 # Modifiez OLLAMA_URL si le serveur est sur une autre machine
-OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
+OLLAMA_URL = os.getenv("OLLAMA_URL", "http://host.docker.internal:11434")
 
 # Nom du modèle créé par l'équipe INFRA depuis le Modelfile
-DEFAULT_MODEL = os.getenv("MODEL_NAME", "phi3-financial")
+DEFAULT_MODEL = os.getenv("MODEL_NAME", "tinyllama:1.1b")
 
 
 # Routes principales
