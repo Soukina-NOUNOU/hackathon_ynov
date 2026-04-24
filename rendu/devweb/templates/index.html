@@ -8,204 +8,235 @@
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════════════════════ HEADER -->
-<header>
-  <div class="brand">
-    <div class="logo">TC</div>
-    <div class="brand-text">
-      <span class="brand-name">TechCorp Industries</span>
-      <span class="brand-sub">Financial AI Assistant</span>
+<!-- ══════════════════════════ SIDEBAR ══════════════════════════ -->
+<aside class="sidebar">
+  <div class="sidebar-brand">
+    <div class="logo-icon">
+      <svg viewBox="0 0 32 32" fill="none">
+        <rect width="32" height="32" rx="8" fill="#2ea44f"/>
+        <path d="M8 22 L12 16 L16 19 L20 12 L24 15" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+      </svg>
+    </div>
+    <div>
+      <div class="sidebar-title">TechCorp</div>
+      <div class="sidebar-sub">Financial AI</div>
     </div>
   </div>
 
-  <div class="header-controls">
-    <!-- Sélecteur de modèle -->
-    <div class="model-picker">
-      <label for="model-select">Modèle</label>
-      <select id="model-select" title="Choisir le modèle">
-        <option value="{{ default_model }}">{{ default_model }}</option>
-      </select>
-    </div>
+  <button class="btn-new-chat" id="btn-new-chat">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    Nouvelle conversation
+  </button>
 
-    <!-- Indicateur de connexion -->
-    <div class="status-badge" id="status-badge">
+  <div class="sidebar-section-label">Suggestions</div>
+  <div class="sidebar-chips">
+    <button class="side-chip" onclick="sendSuggestion(this)"> Analyse de marché</button>
+    <button class="side-chip" onclick="sendSuggestion(this)"> Diversifier un portefeuille</button>
+    <button class="side-chip" onclick="sendSuggestion(this)"> Ratio P/E</button>
+    <button class="side-chip" onclick="sendSuggestion(this)"> Définition obligation</button>
+    <button class="side-chip" onclick="sendSuggestion(this)"> Gestion du risque</button>
+    <button class="side-chip" onclick="sendSuggestion(this)"> Trading algorithmique</button>
+  </div>
+
+  <div class="sidebar-footer">
+    <!-- Statut connexion -->
+    <div class="conn-status" id="conn-status">
       <span class="status-dot" id="status-dot"></span>
       <span id="status-text">Connexion…</span>
     </div>
-
-    <!-- Bouton configuration -->
-    <button class="btn-icon" id="btn-config" title="Paramètres de connexion">⚙</button>
-  </div>
-</header>
-
-<!-- ═══════════════════════════════════════════════════════════ MODAL CONFIG -->
-<div class="modal-overlay" id="modal-overlay">
-  <div class="modal">
-    <h2>Paramètres de connexion</h2>
-    <label>URL du serveur Ollama (INFRA)
-      <input type="text" id="config-url" value="{{ ollama_url }}" placeholder="http://localhost:11434" />
-    </label>
-    <label>Nom du modèle
-      <input type="text" id="config-model" value="{{ default_model }}" placeholder="phi3-financial" />
-    </label>
-    <div class="modal-actions">
-      <button class="btn-secondary" id="btn-cancel">Annuler</button>
-      <button class="btn-primary" id="btn-save">Sauvegarder & Tester</button>
+    <div class="server-info" id="server-info">
+      <span id="footer-model">—</span>
+      <span id="footer-url">—</span>
     </div>
+    <button class="btn-settings" id="btn-config">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Paramètres
+    </button>
   </div>
-</div>
+</aside>
 
-<!-- ═══════════════════════════════════════════════════════════ MAIN -->
-<main>
-  <!-- Zone de messages -->
-  <div class="chat-container" id="chat-container">
-    <!-- Message d'accueil -->
-    <div class="message assistant" id="welcome-message">
-      <div class="avatar">AI</div>
-      <div class="bubble">
-        <p>Bonjour ! Je suis l'assistant financier de <strong>TechCorp Industries</strong>.</p>
-        <p>Je peux vous aider avec :</p>
-        <ul>
-          <li> Analyse de marchés et investissements</li>
-          <li> Budgétisation et planification financière</li>
-          <li> Concepts économiques et trading</li>
-          <li> Stratégie d'entreprise</li>
-        </ul>
-        <p>Comment puis-je vous aider ?</p>
-        <div class="suggestion-chips">
-          <button class="chip" onclick="sendSuggestion(this)">Explique-moi le ratio P/E</button>
-          <button class="chip" onclick="sendSuggestion(this)">Comment diversifier un portefeuille ?</button>
-          <button class="chip" onclick="sendSuggestion(this)">C'est quoi une obligation ?</button>
+<!-- ══════════════════════════ MAIN ══════════════════════════ -->
+<main class="main">
+
+  <!-- Topbar mobile -->
+  <div class="topbar">
+    <button class="btn-icon-sm" id="btn-sidebar-toggle">☰</button>
+    <span class="topbar-title">Financial Assistant</span>
+    <div class="conn-dot-mini" id="conn-dot-mini"></div>
+  </div>
+
+  <!-- Zone messages -->
+  <div class="chat-area" id="chat-area">
+    <!-- État vide / accueil -->
+    <div class="welcome" id="welcome">
+      <div class="welcome-icon">
+        <svg viewBox="0 0 48 48" fill="none">
+          <rect width="48" height="48" rx="14" fill="#2ea44f22"/>
+          <path d="M12 34 L18 24 L24 28 L30 18 L36 23" stroke="#2ea44f" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+      </div>
+      <h1 class="welcome-title">Assistant Financier TechCorp</h1>
+      <p class="welcome-sub">Posez vos questions sur les marchés, investissements, stratégies financières et concepts économiques.</p>
+      <div class="welcome-cards">
+        <div class="wcard" onclick="sendSuggestion(this)">
+          <span class="wcard-label">Comment diversifier un portefeuille ?</span>
+        </div>
+        <div class="wcard" onclick="sendSuggestion(this)">
+          <span class="wcard-label">Explique-moi le ratio P/E</span>
+        </div>
+        <div class="wcard" onclick="sendSuggestion(this)">
+          <span class="wcard-label">C'est quoi une obligation ?</span>
+        </div>
+        <div class="wcard" onclick="sendSuggestion(this)">
+          <span class="wcard-label">Comment gérer le risque en trading ?</span>
         </div>
       </div>
     </div>
   </div>
 
   <!-- Barre de saisie -->
-  <div class="input-area">
-    <div class="input-wrapper">
-      <button class="btn-icon" id="btn-clear" title="Effacer la conversation">🗑</button>
+  <div class="input-bar">
+    <div class="input-box" id="input-box">
       <textarea
         id="user-input"
-        placeholder="Posez votre question financière…"
+        placeholder="Posez votre question financière… (Entrée pour envoyer)"
         rows="1"
         maxlength="4000"
       ></textarea>
-      <button class="btn-send" id="btn-send" title="Envoyer (Entrée)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <line x1="22" y1="2" x2="11" y2="13"/>
-          <polygon points="22 2 15 22 11 13 2 9 22 2"/>
-        </svg>
-      </button>
+      <div class="input-actions">
+        <span class="char-count" id="char-count">0/4000</span>
+        <button class="btn-send" id="btn-send" title="Envoyer">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+        </button>
+      </div>
     </div>
-    <div class="input-footer">
-      <span id="char-count">0 / 4000</span>
-      <span>Modèle : <strong id="current-model-label">{{ default_model }}</strong> — Ollama <span id="footer-url">{{ ollama_url }}</span></span>
-    </div>
+    <p class="input-hint">Shift+Entrée pour un saut de ligne · <button class="link-btn" id="btn-clear-inline">Effacer la conversation</button></p>
   </div>
 </main>
 
-<!-- ═══════════════════════════════════════════════════════════ SCRIPT -->
+<!-- ══════════════════════════ MODAL CONFIG ══════════════════════════ -->
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Paramètres de connexion</h2>
+      <button class="modal-close" id="btn-cancel">✕</button>
+    </div>
+    <div class="modal-body">
+      <label class="field">
+        <span>URL du serveur Ollama</span>
+        <input type="text" id="config-url" value="{{ ollama_url }}" placeholder="http://localhost:11434" />
+        <small>Fournie par l'équipe INFRA</small>
+      </label>
+      <label class="field">
+        <span>Modèle</span>
+        <select id="config-model-select">
+          <option value="{{ default_model }}">{{ default_model }}</option>
+        </select>
+        <small>Sélectionnez parmi les modèles disponibles</small>
+      </label>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-ghost" id="btn-test">Tester la connexion</button>
+      <button class="btn-primary" id="btn-save">Sauvegarder</button>
+    </div>
+    <div id="test-result" class="test-result hidden"></div>
+  </div>
+</div>
+
+<!-- ══════════════════════════ SCRIPT ══════════════════════════ -->
 <script>
-// ─── État global ──────────────────────────────────────────────────────────
 const state = {
-  messages: [],           // historique de la conversation (role + content)
-  streaming: false,       // est-ce qu'une réponse est en cours ?
+  messages: [],
+  streaming: false,
   connected: false,
   currentModel: "{{ default_model }}",
   ollamaUrl: "{{ ollama_url }}",
 };
 
-// ─── Refs DOM ─────────────────────────────────────────────────────────────
-const chatContainer  = document.getElementById("chat-container");
-const userInput      = document.getElementById("user-input");
-const btnSend        = document.getElementById("btn-send");
-const btnClear       = document.getElementById("btn-clear");
-const btnConfig      = document.getElementById("btn-config");
-const btnCancel      = document.getElementById("btn-cancel");
-const btnSave        = document.getElementById("btn-save");
-const statusDot      = document.getElementById("status-dot");
-const statusText     = document.getElementById("status-text");
-const statusBadge    = document.getElementById("status-badge");
-const modelSelect    = document.getElementById("model-select");
-const charCount      = document.getElementById("char-count");
-const currentModelLabel = document.getElementById("current-model-label");
-const footerUrl      = document.getElementById("footer-url");
-const modalOverlay   = document.getElementById("modal-overlay");
+// DOM refs
+const chatArea     = document.getElementById("chat-area");
+const userInput    = document.getElementById("user-input");
+const btnSend      = document.getElementById("btn-send");
+const statusDot    = document.getElementById("status-dot");
+const statusText   = document.getElementById("status-text");
+const connDotMini  = document.getElementById("conn-dot-mini");
+const footerModel  = document.getElementById("footer-model");
+const footerUrl    = document.getElementById("footer-url");
+const modalOverlay = document.getElementById("modal-overlay");
+const charCount    = document.getElementById("char-count");
+const welcome      = document.getElementById("welcome");
 
-// ─── Statut de connexion ──────────────────────────────────────────────────
+// ── Statut connexion ──────────────────────────────────────────────
 async function checkStatus() {
   try {
     const resp = await fetch("/api/status");
     const data = await resp.json();
-
     state.connected = data.connected;
-    statusDot.className  = "status-dot " + (data.connected ? "connected" : "disconnected");
+    const cls = data.connected ? "connected" : "disconnected";
+    statusDot.className = "status-dot " + cls;
+    connDotMini.className = "conn-dot-mini " + cls;
     statusText.textContent = data.connected ? "Connecté" : "Déconnecté";
-    statusBadge.className  = "status-badge " + (data.connected ? "ok" : "nok");
 
     if (data.connected && data.models.length > 0) {
-      // Remplir le sélecteur de modèles
-      const current = modelSelect.value;
-      modelSelect.innerHTML = "";
+      if (!data.models.includes(state.currentModel)) {
+        state.currentModel = data.models[0];
+      }
+      footerModel.textContent = state.currentModel;
+      footerUrl.textContent = state.ollamaUrl.replace("http://", "");
+
+      // Mettre à jour le select du modal
+      const sel = document.getElementById("config-model-select");
+      const prev = sel.value;
+      sel.innerHTML = "";
       data.models.forEach(m => {
-        const opt = document.createElement("option");
-        opt.value = m;
-        opt.textContent = m;
-        modelSelect.appendChild(opt);
+        const o = document.createElement("option");
+        o.value = m; o.textContent = m;
+        if (m === state.currentModel) o.selected = true;
+        sel.appendChild(o);
       });
-      // Sélectionner le modèle courant si disponible
-      if (data.models.includes(current)) modelSelect.value = current;
-      else if (data.models.includes(state.currentModel)) modelSelect.value = state.currentModel;
-      state.currentModel = modelSelect.value;
-      currentModelLabel.textContent = state.currentModel;
     }
   } catch {
     state.connected = false;
-    statusDot.className  = "status-dot disconnected";
+    statusDot.className = "status-dot disconnected";
+    connDotMini.className = "conn-dot-mini disconnected";
     statusText.textContent = "Erreur réseau";
-    statusBadge.className  = "status-badge nok";
   }
 }
 
-// Vérification initiale + polling toutes les 10s
 checkStatus();
 setInterval(checkStatus, 10_000);
 
-// ─── Envoi d'un message ───────────────────────────────────────────────────
+// ── Envoi message ─────────────────────────────────────────────────
 async function sendMessage(text) {
   const content = (text || userInput.value).trim();
   if (!content || state.streaming) return;
 
   if (!state.connected) {
-    showError("Le serveur Ollama n'est pas accessible. Vérifiez la configuration (⚙).");
+    showToast("⚠ Serveur Ollama inaccessible — vérifiez les paramètres (⚙)");
     return;
   }
 
-  // Réinitialise input
+  // Masquer l'accueil
+  if (welcome) welcome.style.display = "none";
+
   userInput.value = "";
-  charCount.textContent = "0 / 4000";
+  charCount.textContent = "0/4000";
   autoResize();
 
-  // Ajouter le message utilisateur à l'historique
   state.messages.push({ role: "user", content });
-  appendMessage("user", content);
+  renderMessage("user", content);
 
-  // Préparer bulle de réponse
   state.streaming = true;
   btnSend.disabled = true;
   btnSend.classList.add("loading");
 
-  const assistantBubble = appendMessage("assistant", "", true);
+  const bubble = renderMessage("assistant", "", true);
 
   try {
     const response = await fetch("/api/chat", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        messages: state.messages,
-        model: state.currentModel,
-      }),
+      body: JSON.stringify({ messages: state.messages, model: state.currentModel }),
     });
 
     const reader = response.body.getReader();
@@ -215,147 +246,152 @@ async function sendMessage(text) {
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
-
-      const chunk = decoder.decode(value);
-      const lines = chunk.split("\n");
-
+      const lines = decoder.decode(value).split("\n");
       for (const line of lines) {
         if (!line.startsWith("data: ")) continue;
         const raw = line.slice(6).trim();
         if (raw === "[DONE]") break;
-
         try {
           const parsed = JSON.parse(raw);
-          if (parsed.error) {
-            assistantBubble.innerHTML = `<span class="error-text">⚠ ${parsed.error}</span>`;
-            break;
-          }
-          const token = parsed?.message?.content ?? "";
-          fullText += token;
-          assistantBubble.textContent = fullText;
-          chatContainer.scrollTop = chatContainer.scrollHeight;
-        } catch { /* ignore JSON malformé */ }
+          if (parsed.error) { bubble.innerHTML = `<span class="err">${parsed.error}</span>`; break; }
+          fullText += parsed?.message?.content ?? "";
+          bubble.textContent = fullText;
+          chatArea.scrollTop = chatArea.scrollHeight;
+        } catch {}
       }
     }
-
-    // Ajouter la réponse complète à l'historique
-    if (fullText) {
-      state.messages.push({ role: "assistant", content: fullText });
-    }
-
-  } catch (err) {
-    assistantBubble.innerHTML = `<span class="error-text">⚠ Erreur réseau : ${err.message}</span>`;
+    if (fullText) state.messages.push({ role: "assistant", content: fullText });
+  } catch (e) {
+    bubble.innerHTML = `<span class="err">Erreur réseau : ${e.message}</span>`;
   } finally {
     state.streaming = false;
     btnSend.disabled = false;
     btnSend.classList.remove("loading");
-    chatContainer.scrollTop = chatContainer.scrollHeight;
+    chatArea.scrollTop = chatArea.scrollHeight;
   }
 }
 
-// ─── Helpers DOM ──────────────────────────────────────────────────────────
-function appendMessage(role, content, isStreaming = false) {
-  const wrapper = document.createElement("div");
-  wrapper.className = `message ${role}`;
+function renderMessage(role, content, streaming = false) {
+  const row = document.createElement("div");
+  row.className = "msg-row " + role;
 
   const avatar = document.createElement("div");
-  avatar.className = "avatar";
-  avatar.textContent = role === "user" ? "Vous" : "AI";
+  avatar.className = "msg-avatar";
+
+  if (role === "assistant") {
+    avatar.innerHTML = `<svg viewBox="0 0 24 24" fill="none"><rect width="24" height="24" rx="6" fill="#2ea44f22"/><path d="M4 16 L7 11 L10 13.5 L13 8 L16 10.5 L19 7" stroke="#2ea44f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>`;
+  } else {
+    avatar.innerText = "Vous";
+  }
 
   const bubble = document.createElement("div");
-  bubble.className = "bubble";
+  bubble.className = "msg-bubble";
 
-  if (isStreaming) {
-    bubble.innerHTML = '<span class="cursor-blink">▍</span>';
+  if (streaming) {
+    bubble.innerHTML = '<span class="blink">▍</span>';
   } else {
     bubble.textContent = content;
   }
 
-  wrapper.appendChild(avatar);
-  wrapper.appendChild(bubble);
-  chatContainer.appendChild(wrapper);
-  chatContainer.scrollTop = chatContainer.scrollHeight;
+  if (role === "user") {
+    row.appendChild(bubble);
+    row.appendChild(avatar);
+  } else {
+    row.appendChild(avatar);
+    row.appendChild(bubble);
+  }
 
+  chatArea.appendChild(row);
+  chatArea.scrollTop = chatArea.scrollHeight;
   return bubble;
 }
 
-function showError(msg) {
-  const err = document.createElement("div");
-  err.className = "error-banner";
-  err.textContent = msg;
-  chatContainer.appendChild(err);
-  setTimeout(() => err.remove(), 5000);
-  chatContainer.scrollTop = chatContainer.scrollHeight;
+function showToast(msg) {
+  const t = document.createElement("div");
+  t.className = "toast";
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.classList.add("show"), 10);
+  setTimeout(() => { t.classList.remove("show"); setTimeout(() => t.remove(), 300); }, 4000);
 }
 
-function sendSuggestion(btn) {
-  sendMessage(btn.textContent);
+function sendSuggestion(el) {
+  const txt = el.querySelector(".wcard-label")?.textContent || el.textContent;
+  sendMessage(txt.trim());
 }
 
-// ─── Effacer la conversation ──────────────────────────────────────────────
-btnClear.addEventListener("click", () => {
+// ── Effacer ───────────────────────────────────────────────────────
+function clearChat() {
   if (state.streaming) return;
   state.messages = [];
-  chatContainer.innerHTML = "";
-  // Réafficher le message d'accueil
-  const welcome = document.getElementById("welcome-message") || buildWelcome();
-  chatContainer.appendChild(welcome);
-});
+  chatArea.innerHTML = "";
+  chatArea.appendChild(welcome);
+  welcome.style.display = "";
+}
 
-// ─── Textarea auto-resize ─────────────────────────────────────────────────
+document.getElementById("btn-new-chat").addEventListener("click", clearChat);
+document.getElementById("btn-clear-inline").addEventListener("click", clearChat);
+
+// ── Input ─────────────────────────────────────────────────────────
 function autoResize() {
   userInput.style.height = "auto";
-  userInput.style.height = Math.min(userInput.scrollHeight, 160) + "px";
+  userInput.style.height = Math.min(userInput.scrollHeight, 180) + "px";
 }
 
 userInput.addEventListener("input", () => {
-  charCount.textContent = `${userInput.value.length} / 4000`;
+  charCount.textContent = `${userInput.value.length}/4000`;
   autoResize();
 });
 
-userInput.addEventListener("keydown", (e) => {
-  if (e.key === "Enter" && !e.shiftKey) {
-    e.preventDefault();
-    sendMessage();
-  }
+userInput.addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
 });
 
 btnSend.addEventListener("click", () => sendMessage());
 
-// ─── Sélection du modèle ──────────────────────────────────────────────────
-modelSelect.addEventListener("change", () => {
-  state.currentModel = modelSelect.value;
-  currentModelLabel.textContent = state.currentModel;
+// ── Sidebar mobile ────────────────────────────────────────────────
+document.getElementById("btn-sidebar-toggle").addEventListener("click", () => {
+  document.querySelector(".sidebar").classList.toggle("open");
 });
 
-// ─── Modal de configuration ───────────────────────────────────────────────
-btnConfig.addEventListener("click", () => {
+// ── Modal ─────────────────────────────────────────────────────────
+document.getElementById("btn-config").addEventListener("click", () => {
   document.getElementById("config-url").value = state.ollamaUrl;
-  document.getElementById("config-model").value = state.currentModel;
+  document.getElementById("test-result").className = "test-result hidden";
   modalOverlay.classList.add("open");
 });
 
-btnCancel.addEventListener("click", () => modalOverlay.classList.remove("open"));
-modalOverlay.addEventListener("click", (e) => {
-  if (e.target === modalOverlay) modalOverlay.classList.remove("open");
+document.getElementById("btn-cancel").addEventListener("click", () => modalOverlay.classList.remove("open"));
+modalOverlay.addEventListener("click", e => { if (e.target === modalOverlay) modalOverlay.classList.remove("open"); });
+
+document.getElementById("btn-test").addEventListener("click", async () => {
+  const url = document.getElementById("config-url").value.trim();
+  const res = document.getElementById("test-result");
+  res.className = "test-result";
+  res.textContent = "Test en cours…";
+  try {
+    await fetch(`/api/config`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
+    const s = await (await fetch("/api/status")).json();
+    if (s.connected) {
+      res.className = "test-result ok";
+      res.textContent = `✓ Connecté — ${s.models.length} modèle(s) disponible(s)`;
+    } else {
+      res.className = "test-result nok";
+      res.textContent = `✗ ${s.error || "Inaccessible"}`;
+    }
+  } catch(e) {
+    res.className = "test-result nok";
+    res.textContent = `✗ Erreur : ${e.message}`;
+  }
 });
 
-btnSave.addEventListener("click", async () => {
+document.getElementById("btn-save").addEventListener("click", async () => {
   const newUrl   = document.getElementById("config-url").value.trim();
-  const newModel = document.getElementById("config-model").value.trim();
-
+  const newModel = document.getElementById("config-model-select").value;
   if (!newUrl) return;
-
-  await fetch("/api/config", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url: newUrl, model: newModel }),
-  });
-
+  await fetch("/api/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: newUrl, model: newModel }) });
   state.ollamaUrl = newUrl;
   state.currentModel = newModel;
-  footerUrl.textContent = newUrl;
-  currentModelLabel.textContent = newModel;
   modalOverlay.classList.remove("open");
   await checkStatus();
 });
