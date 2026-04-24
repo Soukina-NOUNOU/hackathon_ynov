@@ -1,0 +1,6 @@
+---
+LLM:
+  hosts:
+    hackaton:
+      ansible_host: ynovhackaton.duckdns.org
+      ansible_user: azureuser

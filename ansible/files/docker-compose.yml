@@ -1,0 +1,53 @@
+---
+services:
+  traefik:
+    image: traefik:${TRAEFIK_VERSION}
+    container_name: traefik
+    restart: unless-stopped
+    environment:
+      - DOCKER_API_VERSION=1.47
+    command:
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.websecure.http.tls=true
+      - --log.level=${TRAEFIK_LOG_LEVEL}
+      - --certificatesresolvers.myresolver.acme.tlschallenge=true
+      - --certificatesresolvers.myresolver.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --providers.docker.network=traefik-net
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./letsencrypt:/letsencrypt
+    networks:
+      - traefik-net
+
+  custom-front:
+    build:
+      context: hackathon_ynov/rendu/devweb/
+      dockerfile: Dockerfile
+    container_name: custom-front
+    restart: unless-stopped
+    environment:
+      - PORT=5000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.custom-front.rule=Host(`${OPENWEBUI_DOMAIN}`)"
+      - "traefik.http.routers.custom-front.entrypoints=websecure"
+      - "traefik.http.routers.custom-front.tls=true"
+      - "traefik.http.routers.custom-front.tls.certresolver=myresolver"
+      - "traefik.http.services.custom-front.loadbalancer.server.port=5000"
+    networks:
+      - traefik-net
+
+networks:
+  traefik-net:
+    external: true

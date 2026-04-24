@@ -1,0 +1,39 @@
+---
+http:
+  # =======================================================
+  # ROULEURS (ROUTERS)
+  # =======================================================
+  routers:
+    ollama:
+      rule: "Host(`{{ ollama_domain }}`)"
+      service: ollama-service
+      entryPoints:
+        - websecure
+      tls:
+        certResolver: myresolver
+      middlewares:
+  #      - ynov-ip@file
+        - security-headers@file
+
+  # =======================================================
+  # MIDDLEWARES
+  # =======================================================
+  middlewares:
+  #  ynov-ip: 
+  #    ipAllowList:
+  #      sourceRange:
+  #        - "xx.xx.xx.xx"
+
+    security-headers:
+      headers:
+        customResponseHeaders:
+          X-Robots-Tag: "noindex, nofollow"
+
+  # =======================================================
+  # SERVICES
+  # =======================================================
+  services:
+    ollama-service:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:11434"
