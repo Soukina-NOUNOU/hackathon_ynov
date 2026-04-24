@@ -1,0 +1,42 @@
+---
+ssh_pubkeys:
+ - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAII0jt23HoZFuPZD5oAvcW6jJDyfMzEg7Zy4vfgrjBPs3 MN-Desktop"
+ansible_python_interpreter: auto
+
+# firewall security
+ufw_rules:
+  - port: 22
+    proto: tcp
+    rule: allow
+    comment: "SSH access"
+  - port: 80
+    proto: tcp
+    rule: allow
+    comment: "HTTP access"
+  - port: 443
+    proto: tcp
+    rule: allow
+    comment: "HTTPS access"
+  - port: 11434
+    proto: tcp
+    rule: allow
+    comment: "Ollama API access"
+
+# Geerlinguy.security
+security_fail2ban_enabled: false
+security_autoupdate_enabled: false
+security_sudoers_passwordless:
+  - "{{ ansible_user }}"
+
+# Geerlinguy.docker & pip
+docker_users:
+  - "{{ ansible_user }}"
+
+# Playbook
+ollama_models:
+  - tinyllama:1.1b
+
+openwebui_domain: ynovhackaton.duckdns.org
+acme_email: cert@ynovhackaton.duckdns.org
+traefik_version: latest
+traefik_log_level: INFO

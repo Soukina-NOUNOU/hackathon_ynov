@@ -1,0 +1,240 @@
+---
+- name: Configure LLM vm
+  hosts: hackaton
+  roles:
+    - role: geerlingguy.security
+    - role: geerlingguy.docker
+  tasks:
+  #  - name: Ensure pubkeys are present in authorized_keys
+  #    ansible.builtin.lineinfile:
+  #      path: "/home/{{ ansible_user }}/.ssh/authorized_keys"
+  #      line: "{{ item }}"
+  #      state: present
+  #      create: true
+  #      mode: "0600"
+  #      owner: "{{ ansible_user }}"
+  #      group: "{{ ansible_user }}"
+  #    loop: "{{ ssh_pubkeys | default([]) }}"
+
+    - name: Check if Ollama is already installed
+      ansible.builtin.command: ollama --version
+      register: ollama_installed
+      changed_when: false
+      failed_when: false
+
+    - name: Check if NVIDIA GPU is present
+      ansible.builtin.shell:
+        cmd: nvidia-smi
+      register: nvidia_check
+      changed_when: false
+      failed_when: false
+
+    - name: Install NVIDIA drivers if a GPU is present and drivers are missing
+      when: nvidia_check.rc != 0
+      block:
+        - name: Update apt cache
+          ansible.builtin.apt:
+            update_cache: true
+
+        - name: Install ubuntu-drivers-common
+          ansible.builtin.apt:
+            name: ubuntu-drivers-common
+            state: present
+
+        - name: Auto-install recommended NVIDIA drivers
+          ansible.builtin.command: ubuntu-drivers autoinstall
+          changed_when: true
+
+      notify: Reboot server
+
+    - name: Install Ollama if not present
+      when: ollama_installed.rc != 0
+      block:
+        - name: Update apt cache
+          ansible.builtin.apt:
+            update_cache: true
+
+        - name: Download Ollama install script
+          ansible.builtin.uri:
+            url: https://ollama.com/install.sh
+            return_content: true
+          register: ollama_script
+
+        - name: Install Ollama from downloaded script
+          ansible.builtin.shell:
+            cmd: "{{ ollama_script.content }}"
+          changed_when: true
+
+        - name: Verify Ollama installation
+          ansible.builtin.command: ollama --version
+          register: final_check
+          changed_when: false
+          failed_when: false
+
+        - name: Display installation status
+          ansible.builtin.debug:
+            msg: "Ollama {{ final_check.stdout }} is installed and configured"
+
+    - name: Create systemd override directory
+      ansible.builtin.file:
+        path: /etc/systemd/system/ollama.service.d
+        state: directory
+        mode: "0755"
+      become: true
+
+    - name: Configure Ollama daemon
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/files/override.conf"
+        dest: /etc/systemd/system/ollama.service.d/override.conf
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0644"
+      notify:
+        - Reload systemd daemon
+        - Restart ollama
+      become: true
+
+    - name: Get list of installed models
+      ansible.builtin.command: ollama list
+      register: installed_models
+      changed_when: false
+      failed_when: false
+
+    - name: Parse installed models list
+      when:
+        - installed_models.rc == 0
+        - installed_models.stdout_lines | length > 1
+      ansible.builtin.set_fact:
+        current_models: "{{ installed_models.stdout_lines[1:] | map('regex_replace', '^([^\\s]+).*', '\\1') | list }}"
+
+    - name: Set empty list if no models or ollama list failed
+      when:
+        - installed_models.rc != 0 or (installed_models.stdout_lines | length <= 1)
+      ansible.builtin.set_fact:
+        current_models: []
+
+    - name: Identify models to install
+      ansible.builtin.set_fact:
+        models_to_install: "{{ ollama_models | difference(current_models) }}"
+
+    - name: Identify models to remove
+      ansible.builtin.set_fact:
+        models_to_remove: "{{ current_models | difference(ollama_models) }}"
+
+    - name: Display models that will be installed
+      when: models_to_install | length > 0
+      ansible.builtin.debug:
+        msg: "Models to install: {{ models_to_install }}"
+
+    - name: Display models that will be removed
+      when: models_to_remove | length > 0
+      ansible.builtin.debug:
+        msg: "Models to remove: {{ models_to_remove }}"
+
+    - name: Remove unwanted Ollama models
+      when: models_to_remove | length > 0
+      ansible.builtin.command: ollama rm {{ item }}
+      loop: "{{ models_to_remove }}"
+      register: model_remove_result
+      changed_when: model_remove_result.rc == 0
+      failed_when: model_remove_result.rc != 0
+
+    - name: Pull missing Ollama models
+      when: models_to_install | length > 0
+      ansible.builtin.command: ollama pull {{ item }}
+      loop: "{{ models_to_install }}"
+      register: model_pull_result
+      changed_when: model_pull_result.rc == 0
+      failed_when: model_pull_result.rc != 0
+      timeout: 1800
+
+    - name: Verify final model list
+      ansible.builtin.command: ollama list
+      register: final_models
+      changed_when: false
+      failed_when: false
+
+    - name: Display final installed models
+      when: final_models.rc == 0
+      ansible.builtin.debug:
+        msg: "{{ final_models.stdout }}"
+
+    - name: Install ufw
+      ansible.builtin.apt:
+        name: ufw
+        state: present
+        update_cache: true
+      become: true
+
+    - name: Apply UFW rules
+      community.general.ufw:
+        rule: "{{ item.rule }}"
+        port: "{{ item.port | string }}"
+        proto: "{{ item.proto }}"
+        comment: "{{ item.comment | default('') }}"
+      loop: "{{ ufw_rules | default([]) }}"
+      become: true
+
+    - name: Set UFW default policy (deny incoming, allow outgoing)
+      community.general.ufw:
+        policy: deny
+        direction: incoming
+      become: true
+
+    - name: Enable UFW
+      community.general.ufw:
+        state: enabled
+      become: true
+
+    - name: Create Traefik directory structure
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0700"
+      loop:
+        - /home/{{ ansible_user }}/traefik
+        - /home/{{ ansible_user }}/traefik/letsencrypt
+
+    - name: Create Traefik .env file
+      ansible.builtin.template:
+        src: "{{ playbook_dir }}/templates/traefik.env.j2"
+        dest: /home/{{ ansible_user }}/traefik/.env
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0700"
+
+    - name: Copy Docker Compose file for Traefik
+      ansible.builtin.copy:
+        src: "{{ playbook_dir }}/files/docker-compose.yml"
+        dest: /home/{{ ansible_user }}/traefik/docker-compose.yml
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0700"
+
+    - name: Start Traefik
+      community.docker.docker_compose_v2:
+        project_src: /home/{{ ansible_user }}/traefik
+        remove_orphans: true
+        recreate: always
+      become_user: "{{ ansible_user }}"
+
+  handlers:
+    - name: Restart ollama
+      ansible.builtin.systemd:
+        name: ollama
+        state: restarted
+      become: true
+
+    - name: Reboot server
+      ansible.builtin.reboot:
+        msg: "Redémarrage du serveur pour activer le nouveau pilote NVIDIA"
+        reboot_timeout: 600
+        post_reboot_delay: 30
+        test_command: uptime
+
+    - name: Reload systemd daemon
+      ansible.builtin.systemd:
+        daemon_reload: true
+      become: true
